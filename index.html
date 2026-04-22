@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Pac-Man</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Press Start 2P', cursive;
+      color: #00ff88;
+      overflow: hidden;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+    }
+    #game-container {
+      position: relative;
+      border: 4px solid #00ff88;
+      box-shadow: 0 0 30px rgba(0,255,136,0.3);
+    }
+    canvas {
+      display: block;
+      background: #111;
+    }
+    #score {
+      font-size: 16px;
+      margin-top: 20px;
+      color: #ff00ff;
+      text-shadow: 0 0 10px #ff00ff;
+    }
+    #lives {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #00ffff;
+    }
+    #game-over, #win {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      display: none;
+    }
+    #game-over h2, #win h2 {
+      font-size: 32px;
+      color: #ff0044;
+      text-shadow: 0 0 20px #ff0044;
+    }
+    #win h2 {
+      color: #00ff88;
+      text-shadow: 0 0 20px #00ff88;
+    }
+    #restart {
+      margin-top: 20px;
+      padding: 15px 30px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 12px;
+      background: #00ff88;
+      color: #0a0a0f;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #restart:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px #00ff88;
+    }
+    #instructions {
+      margin-top: 20px;
+      font-size: 10px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐾 OpenClaw Pac-Man</h1>
+  <div id="game-container">
+    <canvas id="game" width="400" height="400"></canvas>
+    <div id="game-over">
+      <h2>GAME OVER</h2>
+      <button id="restart" onclick="resetGame()">REINICIAR</button>
+    </div>
+    <div id="win">
+      <h2>¡GANASTE!</h2>
+      <button id="restart" onclick="resetGame()">JUGAR OTRA VEZ</button>
+    </div>
+  </div>
+  <div id="score">PUNTOS: 0</div>
+  <div id="lives">VIDAS: 🐾 🐾 🐾</div>
+  <div id="instructions">Usa las flechas del teclado</div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const TILE_SIZE = 20;
+    const COLS = 20;
+    const ROWS = 20;
+
+    const map = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+      [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
+      [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
+      [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+      [1,2,1,1,2,1,2,1,1,1,1,1,1,2,1,2,1,1,2,1],
+      [1,2,2,2,2,1,2,2,2,1,1,2,2,2,1,2,2,2,2,1],
+      [1,1,1,1,2,1,1,1,0,1,1,0,1,1,1,2,1,1,1,1],
+      [0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
+      [1,1,1,1,2,1,0,1,1,0,0,1,1,0,1,2,1,1,1,1],
+      [0,0,0,0,2,0,0,1,0,0,0,0,1,0,0,2,0,0,0,0],
+      [1,1,1,1,2,1,0,1,1,1,1,1,1,0,1,2,1,1,1,1],
+      [0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
+      [1,1,1,1,2,1,2,1,1,1,1,1,1,2,1,2,1,1,1,1],
+      [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+      [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
+      [1,2,2,1,2,2,2,2,2,0,0,2,2,2,2,2,1,2,2,1],
+      [1,1,2,1,2,1,2,1,1,1,1,1,1,2,1,2,1,2,1,1],
+      [1,2,2,2,2,1,2,2,2,1,1,2,2,2,1,2,2,2,2,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ];
+
+    let player = { x: 10, y: 16, dir: 'stop', nextDir: 'stop' };
+    let ghosts = [
+      { x: 9, y: 9, color: '#ff0044', dir: 'up' },
+      { x: 10, y: 9, color: '#00ffff', dir: 'up' },
+      { x: 9, y: 10, color: '#ff8800', dir: 'up' },
+      { x: 10, y: 10, color: '#ff00ff', dir: 'up' }
+    ];
+    let score = 0;
+    let lives = 3;
+    let gameRunning = true;
+
+    function drawMap() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const tile = map[y][x];
+          const px = x * TILE_SIZE;
+          const py = y * TILE_SIZE;
+          
+          if (tile === 1) {
+            ctx.fillStyle = '#00ff88';
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          } else if (tile === 2) {
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    function drawPlayer() {
+      const px = player.x * TILE_SIZE;
+      const py = player.y * TILE_SIZE;
+      
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath();
+      ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, TILE_SIZE/2 - 2, 0.2 * Math.PI, 1.8 * Math.PI);
+      ctx.lineTo(px + TILE_SIZE/2, py + TILE_SIZE/2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(px + 6, py + 7, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px + 14, py + 7, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawGhosts() {
+      ghosts.forEach(ghost => {
+        const gx = ghost.x * TILE_SIZE;
+        const gy = ghost.y * TILE_SIZE;
+        
+        ctx.fillStyle = ghost.color;
+        ctx.beginPath();
+        ctx.arc(gx + TILE_SIZE/2, gy + TILE_SIZE/2 - 2, TILE_SIZE/2 - 2, Math.PI, 0);
+        ctx.lineTo(gx + TILE_SIZE - 2, gy + TILE_SIZE - 2);
+        ctx.lineTo(gx + 2, gy + TILE_SIZE - 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(gx + 6, gy + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gx + 14, gy + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(gx + 6, gy + 8, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gx + 14, gy + 8, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function canMove(x, y, dir) {
+      const dirs = {
+        up: { x: 0, y: -1 },
+        down: { x: 0, y: 1 },
+        left: { x: -1, y: 0 },
+        right: { x: 1, y: 0 }
+      };
+      const newX = x + dirs[dir].x;
+      const newY = y + dirs[dir].y;
+      
+      if (newX < 0 || newX >= COLS || newY < 0 || newY >= ROWS) return false;
+      return map[newY][newX] !== 1;
+    }
+
+    function movePlayer() {
+      if (player.nextDir !== 'stop' && canMove(player.x, player.y, player.nextDir)) {
+        player.dir = player.nextDir;
+      }
+      
+      if (player.dir !== 'stop' && canMove(player.x, player.y, player.dir)) {
+        const dirs = {
+          up: { x: 0, y: -1 },
+          down: { x: 0, y: 1 },
+          left: { x: -1, y: 0 },
+          right: { x: 1, y: 0 }
+        };
+        player.x += dirs[player.dir].x;
+        player.y += dirs[player.dir].y;
+        
+        if (player.x < 0) player.x = COLS - 1;
+        if (player.x >= COLS) player.x = 0;
+      }
+      
+      if (map[player.y][player.x] === 2) {
+        map[player.y][player.x] = 0;
+        score += 10;
+        document.getElementById('score').textContent = 'PUNTOS: ' + score;
+        
+        if (score >= 1700) {
+          gameRunning = false;
+          document.getElementById('win').style.display = 'block';
+        }
+      }
+    }
+
+    function moveGhosts() {
+      const dirs = ['up', 'down', 'left', 'right'];
+      
+      ghosts.forEach(ghost => {
+        if (Math.random() < 0.02) {
+          ghost.dir = dirs[Math.floor(Math.random() * 4)];
+        }
+        
+        if (!canMove(ghost.x, ghost.y, ghost.dir)) {
+          ghost.dir = dirs[Math.floor(Math.random() * 4)];
+          while (!canMove(ghost.x, ghost.y, ghost.dir)) {
+            ghost.dir = dirs[Math.floor(Math.random() * 4)];
+          }
+        }
+        
+        const dirVectors = {
+          up: { x: 0, y: -1 },
+          down: { x: 0, y: 1 },
+          left: { x: -1, y: 0 },
+          right: { x: 1, y: 0 }
+        };
+        ghost.x += dirVectors[ghost.dir].x;
+        ghost.y += dirVectors[ghost.dir].y;
+        
+        if (ghost.x < 0) ghost.x = COLS - 1;
+        if (ghost.x >= COLS) ghost.x = 0;
+      });
+    }
+
+    function checkCollisions() {
+      ghosts.forEach(ghost => {
+        if (ghost.x === player.x && ghost.y === player.y) {
+          lives--;
+          updateLives();
+          
+          if (lives <= 0) {
+            gameRunning = false;
+            document.getElementById('game-over').style.display = 'block';
+          } else {
+            player.x = 10;
+            player.y = 16;
+            player.dir = 'stop';
+            player.nextDir = 'stop';
+          }
+        }
+      });
+    }
+
+    function updateLives() {
+      let hearts = '';
+      for (let i = 0; i < lives; i++) hearts += '🐾 ';
+      document.getElementById('lives').textContent = 'VIDAS: ' + hearts;
+    }
+
+    function gameLoop() {
+      if (!gameRunning) return;
+      
+      movePlayer();
+      moveGhosts();
+      checkCollisions();
+      
+      drawMap();
+      drawGhosts();
+      drawPlayer();
+      
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resetGame() {
+      player = { x: 10, y: 16, dir: 'stop', nextDir: 'stop' };
+      ghosts = [
+        { x: 9, y: 9, color: '#ff0044', dir: 'up' },
+        { x: 10, y: 9, color: '#00ffff', dir: 'up' },
+        { x: 9, y: 10, color: '#ff8800', dir: 'up' },
+        { x: 10, y: 10, color: '#ff00ff', dir: 'up' }
+      ];
+      score = 0;
+      lives = 3;
+      gameRunning = true;
+      
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (map[y][x] === 0) map[y][x] = 2;
+        }
+      }
+      
+      document.getElementById('score').textContent = 'PUNTOS: 0';
+      document.getElementById('game-over').style.display = 'none';
+      document.getElementById('win').style.display = 'none';
+      updateLives();
+      
+      gameLoop();
+    }
+
+    document.addEventListener('keydown', e => {
+      const keyMap = {
+        'ArrowUp': 'up',
+        'ArrowDown': 'down',
+        'ArrowLeft': 'left',
+        'ArrowRight': 'right'
+      };
+      
+      if (keyMap[e.key]) {
+        e.preventDefault();
+        player.nextDir = keyMap[e.key];
+      }
+    });
+
+    resetGame();
+  </script>
+</body>
+</html>
