@@ -140,6 +140,9 @@
     let score = 0;
     let lives = 3;
     let gameRunning = true;
+    let frameCount = 0;
+    const PLAYER_SPEED = 6;
+    const GHOST_SPEED = 8;
 
     function drawMap() {
       ctx.fillStyle = '#111';
@@ -317,8 +320,14 @@
     function gameLoop() {
       if (!gameRunning) return;
       
-      movePlayer();
-      moveGhosts();
+      frameCount++;
+      
+      if (frameCount % PLAYER_SPEED === 0) {
+        movePlayer();
+      }
+      if (frameCount % GHOST_SPEED === 0) {
+        moveGhosts();
+      }
       checkCollisions();
       
       drawMap();
@@ -329,6 +338,7 @@
     }
 
     function resetGame() {
+      frameCount = 0;
       player = { x: 10, y: 16, dir: 'stop', nextDir: 'stop' };
       ghosts = [
         { x: 9, y: 9, color: '#ff0044', dir: 'up' },
